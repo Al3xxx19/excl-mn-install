@@ -4,7 +4,10 @@ CONFIG_FILE='excl.conf'
 CONFIGFOLDER='/root/.excl'
 COIN_DAEMON='/usr/local/bin/excld'
 COIN_CLI='/usr/local/bin/excl-cli'
-COIN_REPO='https://github.com/Al3xxx19/excl-mn-install/releases/download/v3.0.1/excl-3.0.1-linux.tar.gz'
+#64 bit only
+COIN_TGZ='https://github.com/exclfork/excl-core/releases/download/v3.0.1/excl-3.0.1-linux-gnu-x86_64.tar.gz'
+COIN_PATH='/usr/local/bin/'
+COIN_PATHPART='excl-3.0.1/bin'
 COIN_NAME='EXCLCoin'
 COIN_PORT=23230
 
@@ -34,6 +37,26 @@ progressfilt () {
       fi
     fi
   done
+}
+
+function download_node() {
+  echo -e "Prepare to download $COIN_NAME"
+  TMP_FOLDER=$(mktemp -d)
+  cd $TMP_FOLDER
+  wget --progress=bar:force $COIN_TGZ 2>&1 | progressfilt
+  compile_error
+  COIN_ZIP=$(echo $COIN_TGZ | awk -F'/' '{print $NF}')
+#  COIN_VER=$(echo $COIN_ZIP | awk -F'/' '{print $NF}' | sed -n 's/.*\([0-9]\.[0-9]\.[0-9]\).*/\1/p')
+#  COIN_DIR=$(echo ${COIN_NAME,,}-$COIN_VER)
+  tar xvzf $COIN_ZIP >/dev/null 2>&1
+  compile_error
+  cp $COIN_PATHPART/excl* /usr/local/bin
+  compile_error
+  chmod +x $COIN_DAEMON $COIN_CLI
+  rm -f $COIN_ZIP >/dev/null 2>&1
+  cd ~ >/dev/null
+  rm -rf $TMP_FOLDER >/dev/null 2>&1
+  clear
 }
 
 function compile_node() {
@@ -251,7 +274,26 @@ if [ -n "$(pidof $COIN_DAEMON)" ] || [ -e "$COIN_DAEMOM" ] ; then
 fi
 }
 
-function prepare_system() {
+function prepare_system_for_download() {
+echo -e "Prepare the system to install ${GREEN}$COIN_NAME${NC} master node."
+apt-get update >/dev/null 2>&1
+DEBIAN_FRONTEND=noninteractive apt-get update > /dev/null 2>&1
+DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -y -qq upgrade >/dev/null 2>&1
+echo -e "Installing required packages, it may take some time to finish.${NC}"
+apt-get update >/dev/null 2>&1
+apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" curl systemd >/dev/null 2>&1
+if [ "$?" -gt "0" ];
+  then
+    echo -e "${RED}Not all required packages were installed properly. Try to install them manually by running the following commands:${NC}\n"
+    echo "apt-get update"
+    echo "apt install -y curl sytemd"
+ exit 1
+fi
+
+clear
+}
+
+function prepare_system_for_compile() {
 echo -e "Prepare the system to install ${GREEN}$COIN_NAME${NC} master node."
 apt-get update >/dev/null 2>&1
 DEBIAN_FRONTEND=noninteractive apt-get update > /dev/null 2>&1
@@ -281,6 +323,25 @@ fi
 
 clear
 }
+
+function create_swap() {
+ echo -e "Checking if swap space is needed."
+ PHYMEM=$(free -g|awk '/^Mem:/{print $2}')
+ SWAP=$(swapon -s)
+ if [[ "$PHYMEM" -lt "2"  &&  -z "$SWAP" ]]
+  then
+    echo -e "${GREEN}Server is running with less than 2G of RAM without SWAP, creating 2G swap file.${NC}"
+    SWAPFILE=$(mktemp)
+    dd if=/dev/zero of=$SWAPFILE bs=1024 count=2M
+    chmod 600 $SWAPFILE
+    mkswap $SWAPFILE
+    swapon -a $SWAPFILE
+ else
+  echo -e "${GREEN}The server running with at least 2G of RAM, or a SWAP file is already in place.${NC}"
+ fi
+ clear
+}
+
 
 function important_information() {
  echo
@@ -325,6 +386,9 @@ function setup_node() {
 clear
 
 checks
-prepare_system
-compile_node
+#prepare_system_for_compile
+#compile_node
+create_swap
+prepare_system_for_download
+download_node
 setup_node
