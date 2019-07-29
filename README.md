@@ -46,5 +46,5 @@ Also, if you want to check/start/stop EXCLCoin , run one of the following comman
 <li>systemctl status EXCLCoin #To check the service is running.</li>
 <li>systemctl start EXCLCoin #To start EXCL service.</li>
 <li>systemctl stop EXCLCoin #To stop EXCL service.</li>
-<li>systemctl is-enabled EXCLCoin #To check whetether EXCL service is enabled on boot or not.</li>
+<li>systemctl is-enabled EXCLCoin #To check whether EXCL service is enabled on boot or not.</li>
 </ul>
